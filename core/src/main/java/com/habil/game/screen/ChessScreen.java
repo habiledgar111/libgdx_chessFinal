@@ -36,7 +36,7 @@ public class ChessScreen implements Screen {
   Board board;
   String selectedSquare = null;
 
-  public ChessScreen(boolean iswhite, int depth){
+  public ChessScreen(boolean iswhite, int depth) {
     game = new GameState(iswhite, depth);
   }
 
@@ -51,9 +51,9 @@ public class ChessScreen implements Screen {
     camera = new OrthographicCamera();
     view = new FitViewport(WORLD_SIZE, WORLD_SIZE, camera);
 
-
     camera.position.set(WORLD_SIZE / 2f, WORLD_SIZE / 2f, 0);
     camera.update();
+    board = game.getBoard();
   }
 
   private void initTexturePieceLibrary() {
@@ -74,7 +74,6 @@ public class ChessScreen implements Screen {
 
   @Override
   public void render(float delta) {
-    board = game.getBoard();
     view.apply();
     // camera.update();
 
@@ -135,6 +134,12 @@ public class ChessScreen implements Screen {
         } else {
           renderer.setColor(Color.LIGHT_GRAY);
         }
+        char fileChar = (char) ('a' + x);
+        int rankNum = y + 1;
+        String currentSq = "" + fileChar + rankNum;
+        if (selectedSquare != null && selectedSquare.equals(currentSq)) {
+          renderer.setColor(Color.YELLOW);
+        }
         renderer.rect(x * tileSize, y * tileSize, tileSize, tileSize);
       }
     }
@@ -178,6 +183,8 @@ public class ChessScreen implements Screen {
   }
 
   private void handleInput() {
+    if(game.isWaiting())return;
+    
     if (Gdx.input.justTouched()) {
       Vector3 touchPos = new Vector3();
       touchPos.set(Gdx.input.getX(), Gdx.input.getY(), 0);

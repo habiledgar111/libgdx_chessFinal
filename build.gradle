@@ -5,7 +5,7 @@ buildscript {
     mavenLocal()
     google()
     maven { url = 'https://central.sonatype.com/repository/maven-snapshots/' }
-    maven { url '[https://jitpack.io](https://jitpack.io)' }
+    maven { url = 'https://jitpack.io' }
   }
   dependencies {
 
@@ -28,6 +28,12 @@ allprojects {
 
 configure(subprojects) {
   apply plugin: 'java-library'
+  java {
+        toolchain {
+            languageVersion = JavaLanguageVersion.of(17)
+        }
+    }
+    
   java.sourceCompatibility = 17
 
   // From https://lyze.dev/2021/04/29/libGDX-Internal-Assets-List/
