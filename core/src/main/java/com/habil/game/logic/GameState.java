@@ -18,55 +18,48 @@ public class GameState {
 
   public GameState(boolean isPlayerWhite, int depth) {
     this.board = new Board();
-    // engine = new Stockfish();
+    
     api = new Stockfish_Api();
-    // try {
-    // engine.start();
-    // System.out.println("engine success run");
-    // } catch (Exception e) {
-    // e.printStackTrace();
-    // System.out.println(e.getMessage());
-    // }
-
-    // stockFishCommand("uci");
-    // stockFishCommand("isready");
 
     this.depth = depth;
     this.isPlayerWhite = isPlayerWhite;
-    if (!isPlayerWhite) {
-      // stockFishCommand("position fen " + board.getFen());
-      // stockFishCommand("go depth " + depth);
+  }
 
-      String fanSnapShot = board.getFen();
-      getBestMoved(fanSnapShot).thenAccept(uci -> {
-        if (uci == null)
-          return;
-        Move best = new Move(uci, board.getSideToMove());
-
-        Gdx.app.postRunnable(() -> {
-          if (!board.getFen().startsWith(fanSnapShot.split(" ")[0])) {
-            System.out.println("board changed, ignoring engine move");
-            return;
-          }
-          if (!board.legalMoves().contains(best)) {
-            System.out.println("engine move illegal: " + best);
-            return;
-          }
-
-          LogMove(best);
-          board.doMove(best);
-
-        });
-      });
-      // new Thread(() -> {
-      // getBestMoved(fanSnapShot);
-      // }).start();
+  public void startGame(){
+    if(!isPlayerWhite){
+      triggerEngineMove();
     }
+  }
+
+  private void triggerEngineMove(){
+    isWaitingApi = true;
+    String fanSnapshot = board.getFen();
+
+    getBestMoved(fanSnapshot).thenAccept(uci -> {
+      if( uci == null){
+        isWaitingApi = false;
+        return;
+      }
+
+      var side = board.getSideToMove();
+      Move best = new Move(uci, side);
+      Gdx.app.postRunnable(() -> {
+        if(!board.getFen().equals(fanSnapshot)){
+          isWaitingApi = false;
+          return;
+        }
+        if(board.legalMoves().contains(best)){
+          board.doMove(best);
+        }
+        isWaitingApi = false;
+      });
+    });
   }
 
   public void move(String UCI) {
 
-    if(isWaitingApi)return;
+    if (isWaitingApi)
+      return;
 
     Move move = new Move(UCI, board.getSideToMove());
 
@@ -83,17 +76,24 @@ public class GameState {
     getBestMoved(fenSnapshot)
         .thenAccept(uci -> {
 
-          if (uci == null)
+          if (uci == null){
+            isWaitingApi = false;
             return;
+          }
 
-          Move best = new Move(uci, board.getSideToMove());
+          var side = board.getSideToMove();
+          Move best = new Move(uci, side);
 
           Gdx.app.postRunnable(() -> {
+            if (!board.getFen().equals(fenSnapshot)) {
+              System.out.println("board changed, ignoring engine move");
+              isWaitingApi = false;
+              return;
+            }
             System.out.println("Engine mencoba langkah: " + uci);
             try {
-              Move bestMove = new Move(uci, board.getSideToMove());
-              if (board.legalMoves().contains(bestMove)) {
-                board.doMove(bestMove);
+              if (board.legalMoves().contains(best)) {
+                board.doMove(best);
                 System.out.println("FEN Sekarang: " + board.getFen());
               } else {
                 System.err.println("Langkah Engine Ilegal menurut library!");
@@ -140,7 +140,7 @@ public class GameState {
     return board;
   }
 
-  public boolean isWaiting(){
+  public boolean isWaiting() {
     return isWaitingApi;
   }
 }

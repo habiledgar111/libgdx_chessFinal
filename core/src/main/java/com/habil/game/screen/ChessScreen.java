@@ -1,6 +1,8 @@
 package com.habil.game.screen;
 
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 import com.badlogic.gdx.Gdx;
@@ -14,17 +16,17 @@ import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
 import com.badlogic.gdx.math.Vector3;
 import com.badlogic.gdx.utils.viewport.FitViewport;
 import com.badlogic.gdx.utils.viewport.Viewport;
-import com.github.bhlangonijr.chesslib.Board;
 import com.github.bhlangonijr.chesslib.Piece;
 import com.github.bhlangonijr.chesslib.Square;
-import com.habil.game.logic.GameState;
+import com.github.bhlangonijr.chesslib.move.Move;
+import com.habil.game.logic.GameState2;
 
 /**
  * First screen of the application. Displayed after the application is created.
  */
 public class ChessScreen implements Screen {
   Map<Piece, Texture> texturePiece;
-  GameState game;
+  GameState2 game;
 
   SpriteBatch batch;
   ShapeRenderer renderer;
@@ -33,11 +35,14 @@ public class ChessScreen implements Screen {
   Viewport view;
   final float WORLD_SIZE = 640;
 
-  Board board;
   String selectedSquare = null;
 
+  private List<Square> legalMoves = new ArrayList<>();
+
+  private long lastClickTime = 0;
+
   public ChessScreen(boolean iswhite, int depth) {
-    game = new GameState(iswhite, depth);
+    game = new GameState2(iswhite, depth);
   }
 
   @Override
@@ -53,7 +58,6 @@ public class ChessScreen implements Screen {
 
     camera.position.set(WORLD_SIZE / 2f, WORLD_SIZE / 2f, 0);
     camera.update();
-    board = game.getBoard();
   }
 
   private void initTexturePieceLibrary() {
@@ -81,6 +85,8 @@ public class ChessScreen implements Screen {
     Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT);
 
     boardRender(camera);
+
+    renderHints();
 
     batch.setProjectionMatrix(camera.combined);
     batch.begin();
@@ -157,7 +163,7 @@ public class ChessScreen implements Screen {
         String squareStr = ("" + fileChar + rankNum).toUpperCase();
         Square sq = Square.fromValue(squareStr);
 
-        Piece piece = board.getPiece(sq);
+        Piece piece = game.getPiece(sq);
         if (piece == Piece.NONE)
           continue;
 
@@ -186,6 +192,11 @@ public class ChessScreen implements Screen {
     if(game.isWaiting())return;
     
     if (Gdx.input.justTouched()) {
+      long now = System.currentTimeMillis();
+
+      if(now - lastClickTime < 150)return;
+
+      lastClickTime = now;
       Vector3 touchPos = new Vector3();
       touchPos.set(Gdx.input.getX(), Gdx.input.getY(), 0);
       view.unproject(touchPos);
@@ -201,14 +212,48 @@ public class ChessScreen implements Screen {
     int rankNum = rank + 1;
     String square = "" + fileChar + rankNum;
 
+    Square fromSq = Square.fromValue(square.toUpperCase());
+    
     if (selectedSquare == null) {
       selectedSquare = square;
+      legalMoves.clear();
+      try {
+        List<Move> moves = game.getLegalMove();
+        for(Move m : moves){
+          if(m.getFrom().equals(fromSq)){
+            legalMoves.add(m.getTo());
+          }
+        }
+      } catch (Exception e) {
+        e.printStackTrace();
+      }
       return;
     }
 
     String uci = selectedSquare + square;
 
-    game.move(uci);
+    game.playerMove(uci);
     selectedSquare = null;
+    legalMoves.clear();
+  }
+
+  private void renderHints(){
+    renderer.setProjectionMatrix(camera.combined);
+    renderer.begin(ShapeRenderer.ShapeType.Filled);
+
+    renderer.setColor(new Color(0, 0, 0, 0.4f));
+
+    for(Square sq : legalMoves){
+      int index = sq.ordinal();
+      int file = index % 8;
+      int rank = index / 8; 
+
+      float centerX = file * tileSize + tileSize /2f;
+      float centerY = rank * tileSize + tileSize /2f;
+
+      renderer.circle(centerX, centerY, tileSize / 6f);
+
+    }
+    renderer.end();
   }
 }
