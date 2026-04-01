@@ -17,6 +17,7 @@ import com.badlogic.gdx.math.Vector3;
 import com.badlogic.gdx.utils.viewport.FitViewport;
 import com.badlogic.gdx.utils.viewport.Viewport;
 import com.github.bhlangonijr.chesslib.Piece;
+import com.github.bhlangonijr.chesslib.Side;
 import com.github.bhlangonijr.chesslib.Square;
 import com.github.bhlangonijr.chesslib.move.Move;
 import com.habil.game.logic.GameState2;
@@ -189,12 +190,18 @@ public class ChessScreen implements Screen {
   }
 
   private void handleInput() {
-    if(game.isWaiting())return;
-    
+    if (!game.isPlayerTurn()) {
+      return;
+    }
+
+    if (game.isWaiting())
+      return;
+
     if (Gdx.input.justTouched()) {
       long now = System.currentTimeMillis();
 
-      if(now - lastClickTime < 150)return;
+      if (now - lastClickTime < 150)
+        return;
 
       lastClickTime = now;
       Vector3 touchPos = new Vector3();
@@ -205,22 +212,34 @@ public class ChessScreen implements Screen {
   }
 
   private void moveCall(float worldX, float worldY) {
-    int file = (int) worldX / tileSize;
-    int rank = (int) worldY / tileSize;
+    if (!game.isPlayerTurn()) {
+      selectedSquare = null;
+      legalMoves.clear();
+      return;
+    }
+
+    // int file = (int) worldX / tileSize;
+    // int rank = (int) worldY / tileSize;
+    int file = Math.min(7, Math.max(0, (int) worldX / tileSize));
+    int rank = Math.min(7, Math.max(0, (int) worldY / tileSize));
 
     char fileChar = (char) ('a' + file);
     int rankNum = rank + 1;
     String square = "" + fileChar + rankNum;
 
     Square fromSq = Square.fromValue(square.toUpperCase());
-    
+
     if (selectedSquare == null) {
+      Piece piece = game.getPiece(fromSq);
+      if(piece == Piece.NONE || (game.isPlayerWhite() && piece.getPieceSide() != Side.WHITE) || (!game.isPlayerWhite() && piece.getPieceSide() != Side.BLACK)){
+        return;
+      }
       selectedSquare = square;
       legalMoves.clear();
       try {
         List<Move> moves = game.getLegalMove();
-        for(Move m : moves){
-          if(m.getFrom().equals(fromSq)){
+        for (Move m : moves) {
+          if (m.getFrom().equals(fromSq)) {
             legalMoves.add(m.getTo());
           }
         }
@@ -233,23 +252,24 @@ public class ChessScreen implements Screen {
     String uci = selectedSquare + square;
 
     game.playerMove(uci);
+    
     selectedSquare = null;
     legalMoves.clear();
   }
 
-  private void renderHints(){
+  private void renderHints() {
     renderer.setProjectionMatrix(camera.combined);
     renderer.begin(ShapeRenderer.ShapeType.Filled);
 
     renderer.setColor(new Color(0, 0, 0, 0.4f));
 
-    for(Square sq : legalMoves){
+    for (Square sq : legalMoves) {
       int index = sq.ordinal();
       int file = index % 8;
-      int rank = index / 8; 
+      int rank = index / 8;
 
-      float centerX = file * tileSize + tileSize /2f;
-      float centerY = rank * tileSize + tileSize /2f;
+      float centerX = file * tileSize + tileSize / 2f;
+      float centerY = rank * tileSize + tileSize / 2f;
 
       renderer.circle(centerX, centerY, tileSize / 6f);
 

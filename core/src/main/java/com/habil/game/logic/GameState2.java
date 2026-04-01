@@ -28,6 +28,8 @@ public class GameState2 {
 
   private TurnState state;
 
+  private volatile boolean engineMovePending = false;
+
   public GameState2(boolean isPlayerWhite, int depth) {
     this.board = new Board();
     this.api = new Stockfish_Api();
@@ -63,10 +65,19 @@ public class GameState2 {
       return;
 
     state = TurnState.ENGINE_TURN;
-    triggerEngineMove();
+    
+    Gdx.app.postRunnable(() -> triggerEngineMove());
   }
 
   private void triggerEngineMove() {
+
+    if(engineMovePending){
+      System.out.println("Engine move already pending, skipping");
+      return;
+    }
+
+    engineMovePending = true;
+
     String fenSnapshot = board.getFen();
 
     Side sideSnapshot = board.getSideToMove();
@@ -84,18 +95,33 @@ public class GameState2 {
       }
       Move bestMove = new Move(uci, sideSnapshot);
       Gdx.app.postRunnable(() -> {
+        if(!engineMovePending){
+          System.out.println("Engine move cancelled (flag cleared)");
+          return;
+        }
+
         if (!board.getFen().equals(fenSnapshot)) {
           System.out.println("skip engine move (state changed)");
+          engineMovePending = false;
           return;
         }
 
         if (state != TurnState.ENGINE_TURN) {
           System.out.println("skip engine move (wring state)");
+          engineMovePending = false;
+          return;
+        }
+
+        if(!board.legalMoves().contains(bestMove)){
+          System.out.println("Move illegal");
+          engineMovePending = false;
           return;
         }
 
         if (!board.legalMoves().contains(bestMove)) {
           System.out.println("engince move illegal");
+          engineMovePending = false;
+
           return;
         }
 
@@ -105,6 +131,13 @@ public class GameState2 {
           return;
         state = TurnState.PLAYER_TURN;
       });
+    }).exceptionally(throwable -> {
+      Gdx.app.postRunnable(() -> {
+        engineMovePending = false;
+        state = TurnState.PLAYER_TURN;
+        System.out.println("Enginge fail cuz:  "+throwable.getMessage());
+      });
+      return null;
     });
   }
 
@@ -135,6 +168,10 @@ public class GameState2 {
 
   public List<Move> getLegalMove(){
     return MoveGenerator.generateLegalMoves(board);
+  }
+
+  public boolean isPlayerWhite(){
+    return isPlayerWhite;
   }
 
 }
